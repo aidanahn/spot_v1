@@ -3,15 +3,17 @@
 #define ESC_PIN 25
 
 const int FREQUENCY = 50;
-const int LEDC_CHANNEL = 0;
 const int RESOLUTION = 16;
+const int LED_CHANNEL = 0;
 
 void setup() {
   Serial.begin(115200);
-  ledcSetup(LEDC_CHANNEL, FREQUENCY, RESOLUTION);
-  ledcAttachPin(ESC_PIN, LEDC_CHANNEL);
+  ledcSetup(LED_CHANNEL, FREQUENCY, RESOLUTION);
+  ledcAttachPin(ESC_PIN, LED_CHANNEL);
 }
 
 void loop() {
-  Serial.println("Test");
+  ledcWrite(LED_CHANNEL, 4915);
+  Serial.println("Neutral");
+  delay(1000);
 }
