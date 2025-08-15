@@ -16,13 +16,13 @@ void setup() {
   ledcAttachPin(ESC_PIN, LED_CHANNEL);
   setESCMicroseconds(1500);
   Serial.println("Turn on ESC");
-  delay(5000);
+  delay(1000);
   Serial.println("Starting Test");
 }
 
 void loop() {
-  setESCMicroseconds(1450);
-  delay(5000);
+  setESCMicroseconds(1565);
+  delay(1000);
   while (true) {
     setESCMicroseconds(1500);
     Serial.println("Test Finished");
