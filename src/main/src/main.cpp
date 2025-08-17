@@ -1,18 +1,22 @@
 #include <Arduino.h>
 
-// put function declarations here:
-int myFunction(int, int);
+#define ESC_PIN 33
+
+const int FREQUENCY = 50;
+const int RESOLUTION = 16;
+const int LED_CHANNEL = 0;
+
+void setESCMicroseconds(int microseconds);
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  ledcSetup(LED_CHANNEL, FREQUENCY, RESOLUTION);
+  ledcAttachPin(ESC_PIN, LED_CHANNEL);
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  setESCMicroseconds(1500);
 }
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+void setESCMicroseconds(int microseconds) {
+  ledcWrite(LED_CHANNEL, int((double(microseconds) / 20000) * 65535));
 }
