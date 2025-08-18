@@ -1,20 +1,30 @@
+// Libraries
 #include <Arduino.h>
 #include <QTRSensors.h>
 
 QTRSensors qtr;
 
+// Constants
 #define ESC_PIN 33
 #define CALIBRATION_BUTTON_PIN 25
-
+#define SERVO_PIN 32
 const int FREQUENCY = 50;
 const int RESOLUTION = 16;
 const int LED_CHANNEL = 0;
+const int SERVO_LED_CHANNEL = 1;
+
 
 const uint8_t SensorCount = 8;
 uint16_t sensorValues[SensorCount];
 
+// Function Declarations
 void setESCMicroseconds(int microseconds);
 void calibrateQTR();
+void setServoAngle(int angle);
+uint16_t getPosition();
+void startupServoSweep();
+
+// -------- Setup and Loop -------- //
 
 void setup() {
   Serial.begin(9600);
@@ -23,30 +33,38 @@ void setup() {
 
   ledcSetup(LED_CHANNEL, FREQUENCY, RESOLUTION);
   ledcAttachPin(ESC_PIN, LED_CHANNEL);
+  ledcSetup(SERVO_LED_CHANNEL, FREQUENCY, RESOLUTION);
+  ledcAttachPin(SERVO_PIN, SERVO_LED_CHANNEL);
 
   calibrateQTR();
+
+  setESCMicroseconds(1500);
+  startupServoSweep();
 }
 
 void loop() {
-  setESCMicroseconds(1500);
-
-  uint16_t position = qtr.readLineWhite(sensorValues);
-
-  // print the sensor values as numbers from 0 to 1000, where 0 means maximum
-  // reflectance and 1000 means minimum reflectance, followed by the line
-  // position
-  for (uint8_t i = 0; i < SensorCount; i++)
-  {
-    Serial.print(sensorValues[i]);
-    Serial.print('\t');
+  uint16_t position = getPosition();
+  if (position > 3500) {
+    setServoAngle(0);
   }
-  Serial.println(position);
-
-  delay(250);
+  else if (position < 3500) {
+    setServoAngle(180);
+  }
 }
 
+// -------- End Setup and Loop -------- //
+
+// Function Definitions
 void setESCMicroseconds(int microseconds) {
   ledcWrite(LED_CHANNEL, int((double(microseconds) / 20000) * 65535));
+}
+
+void setServoAngle(int angle) {
+  // Map 0-180 degrees to 1-2 ms pulse
+  int pulse_us = map(angle, 0, 180, 1000, 2000);
+  // Convert to 16-bit duty cycle (20ms period)
+  int duty = (pulse_us * 65535) / 20000;
+  ledcWrite(SERVO_LED_CHANNEL, duty);
 }
 
 void calibrateQTR() {
@@ -86,4 +104,19 @@ void calibrateQTR() {
   Serial.println();
   Serial.println();
   delay(1000);
+}
+
+uint16_t getPosition() {
+  uint16_t position = qtr.readLineWhite(sensorValues);
+  return position;
+}
+
+void startupServoSweep() {
+  setServoAngle(90);
+  delay(250);
+  setServoAngle(0);
+  delay(750);
+  setServoAngle(180);
+  delay(250);
+  setServoAngle(90);
 }
