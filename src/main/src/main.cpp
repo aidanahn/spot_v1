@@ -29,7 +29,20 @@ void setup() {
 
 void loop() {
   setESCMicroseconds(1500);
-  Serial.println("ESC set to 1500us (neutral)");
+
+  uint16_t position = qtr.readLineWhite(sensorValues);
+
+  // print the sensor values as numbers from 0 to 1000, where 0 means maximum
+  // reflectance and 1000 means minimum reflectance, followed by the line
+  // position
+  for (uint8_t i = 0; i < SensorCount; i++)
+  {
+    Serial.print(sensorValues[i]);
+    Serial.print('\t');
+  }
+  Serial.println(position);
+
+  delay(250);
 }
 
 void setESCMicroseconds(int microseconds) {
