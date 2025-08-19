@@ -2,19 +2,23 @@
 #include <Arduino.h>
 #include <QTRSensors.h>
 
-QTRSensors qtr;
-
 // Constants
 #define ESC_PIN 33
 #define CALIBRATION_BUTTON_PIN 25
 #define SERVO_PIN 32
+
 const int FREQUENCY = 50;
 const int RESOLUTION = 16;
 const int LED_CHANNEL = 0;
 const int SERVO_LED_CHANNEL = 1;
-
-
 const uint8_t SensorCount = 8;
+
+// PID Control Constants (Placeholders)
+const uint16_t setpoint = 3500;
+const float Kp = 0.05;
+
+// Global Variables
+QTRSensors qtr;
 uint16_t sensorValues[SensorCount];
 
 // Function Declarations
@@ -23,6 +27,7 @@ void calibrateQTR();
 void setServoAngle(int angle);
 uint16_t getPosition();
 void startupServoSweep();
+float computePID();
 
 // -------- Setup and Loop -------- //
 
@@ -42,14 +47,10 @@ void setup() {
   startupServoSweep();
 }
 
-void loop() {
-  uint16_t position = getPosition();
-  if (position > 3500) {
-    setServoAngle(0);
-  }
-  else if (position < 3500) {
-    setServoAngle(180);
-  }
+void loop() { 
+  float pidOutput = 90 + computePID();
+  setServoAngle(constrain(pidOutput, 0, 180));
+  delay(5);
 }
 
 // -------- End Setup and Loop -------- //
@@ -87,7 +88,6 @@ void calibrateQTR() {
   digitalWrite(LED_BUILTIN, LOW); // turn off Arduino's LED to indicate we are through with calibration
 
   // print the calibration minimum values measured when emitters were on
-  Serial.begin(9600);
   for (uint8_t i = 0; i < SensorCount; i++)
   {
     Serial.print(qtr.calibrationOn.minimum[i]);
@@ -119,4 +119,13 @@ void startupServoSweep() {
   setServoAngle(180);
   delay(250);
   setServoAngle(90);
+}
+
+float computePID() {
+  uint16_t position = getPosition();
+  int error = setpoint - position;
+
+  double proportional = error;
+
+  return (Kp * proportional);
 }
