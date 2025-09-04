@@ -4,7 +4,6 @@
 
 // Constants
 #define ESC_PIN 33
-#define CALIBRATION_BUTTON_PIN 25
 #define SERVO_PIN 32
 
 const int FREQUENCY = 50;
@@ -34,8 +33,6 @@ float computePID();
 void setup() {
   Serial.begin(9600);
 
-  pinMode(CALIBRATION_BUTTON_PIN, INPUT_PULLUP);
-
   ledcSetup(LED_CHANNEL, FREQUENCY, RESOLUTION);
   ledcAttachPin(ESC_PIN, LED_CHANNEL);
   ledcSetup(SERVO_LED_CHANNEL, FREQUENCY, RESOLUTION);
@@ -45,12 +42,30 @@ void setup() {
 
   setESCMicroseconds(1500);
   startupServoSweep();
+  delay(1000);
 }
 
 void loop() { 
-  float pidOutput = 90 + computePID();
-  setServoAngle(constrain(pidOutput, 0, 180));
-  delay(5);
+  unsigned long startTime = millis();
+
+  // Run for 5 seconds
+  while (millis() - startTime < 3000) {
+    // Run motor at throttle (adjust microseconds as needed)
+    setESCMicroseconds(1800); // ~forward throttle
+
+    // Run PID for steering
+    float pidOutput = 90 + computePID();
+    setServoAngle(constrain(pidOutput, 0, 180));
+
+    delay(10); // small delay for stability
+  }
+
+  // After 5 seconds, stop the ESC
+  setESCMicroseconds(1500); // neutral/stop
+  setServoAngle(90);        // center steering
+  while (true) {
+    // Hold here (or you can reset)
+  }
 }
 
 // -------- End Setup and Loop -------- //
@@ -107,7 +122,7 @@ void calibrateQTR() {
 }
 
 uint16_t getPosition() {
-  uint16_t position = qtr.readLineWhite(sensorValues);
+  uint16_t position = qtr.readLineBlack(sensorValues);
   return position;
 }
 
