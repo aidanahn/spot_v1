@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <AS5600.h>
+#include <PID_v1.h>
 
 const char* ssid = "PacerESP32";
 const char* password = "04082008";
@@ -26,10 +27,11 @@ const double WHEEL_DIAMETER = 121.9 / 1000.0;
 const double WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
 
 // Website Inputs
-int microseconds = 1500;
 double distance = 0.0;
+int microsecondsTemporary = NEUTRAL_THROTTLE;
 
-// Steering PID Constants
+
+// Steering PID Values
 float Kp = 0.0;
 float Kd = 0.0;
 float Ki = 0.0;
@@ -68,10 +70,10 @@ void loop() {
 
     if (pacing) {
         Serial.println(getDistanceTraveled());
-        setESCMicroseconds(microseconds);
+        setESCMicroseconds(microsecondsTemporary);
         if (getDistanceTraveled() >= distance) {
-            setESCMicroseconds(NEUTRAL_THROTTLE);
             pacing = false;
+            setESCMicroseconds(NEUTRAL_THROTTLE);
             as5600.resetCumulativePosition(0);
             Serial.println("Program Stopped");
         }
@@ -89,15 +91,15 @@ void handleRoot() {
         if (server.hasArg("ki")) {
             Ki = server.arg("ki").toFloat();
         }
-        if (server.hasArg("microseconds")) {
-            microseconds = server.arg("microseconds").toInt();
-        }
         if (server.hasArg("distance")) {
             distance = server.arg("distance").toFloat();
         }
+        if (server.hasArg("microsecondsTemporary")) {
+            microsecondsTemporary = server.arg("microsecondsTemporary").toInt();
+        }
 
-        pacing = true;
         as5600.resetCumulativePosition(0);
+        pacing = true;
     }
 
     String html = "<!DOCTYPE html><html><body>";
@@ -111,10 +113,10 @@ void handleRoot() {
     html += "<label for='ki'>Ki (Integral Gain): </label>";
     html += "<input type='number' id='ki' name='ki' step='any' value='" + String(Ki) + "'><br>";
 
-    html += "<label for='ki'>Microseconds: </label>";
-    html += "<input type='number' id='microseconds' name='microseconds' step='any' value='" + String(microseconds) + "'><br>";
-    html += "<label for='ki'>Distance (meters): </label>";
+    html += "<label for='distance'>Distance (Meters): </label>";
     html += "<input type='number' id='distance' name='distance' step='any' value='" + String(distance) + "'><br>";
+    html += "<label for='goalTime'>Microseconds: </label>";
+    html += "<input type='number' id='microsecondsTemporary' name='microsecondsTemporary' value='" + String(microsecondsTemporary) + "'><br>";
     
     html += "<input type='submit' value='Start'>";
 
