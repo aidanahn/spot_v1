@@ -34,19 +34,28 @@ const double WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
 
 // Website Inputs
 double distance = 0.0;
+int goalTime = 0;
 int microsecondsTemporary = NEUTRAL_THROTTLE;
 
 // Steering PID Values
-float Kp = 0.5;
-float Kd = 0.0;
-float Ki = 0.0;
+double Kp = 0.0;
+double Kd = 0.0;
+double Ki = 0.0;
+
+// Motor PID Values
+double motorKp = 0.0;
+double motorKd = 0.0;
+double motorKi = 0.0;
 
 // PID Variables
 double Setpoint, Input, Output;
 PID steeringPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+double MotorSetpoint, MotorInput, MotorOutput;
+PID motorPID(&MotorInput, &MotorOutput, &MotorSetpoint, motorKp, motorKi, motorKd, DIRECT);
 
 // Variables
 boolean pacing = false;
+int decimalPlaces = 3;
 
 // Function Declarations
 void handleRoot();
@@ -55,6 +64,8 @@ double getDistanceTraveled();
 void setServoAngle(int angle);
 void calibrateQTR();
 uint16_t getPosition();
+double getRPS();
+double calculateRPS();
 
 void setup() {
     Serial.begin(115200);
@@ -75,6 +86,11 @@ void setup() {
     steeringPID.SetOutputLimits(-90, 90);
     steeringPID.SetMode(AUTOMATIC);
 
+    MotorInput = getRPS();
+    MotorSetpoint = calculateRPS();
+    motorPID.SetOutputLimits(0, 500);
+    motorPID.SetMode(AUTOMATIC);
+
     WiFi.softAP(ssid, password);
 
     server.on("/", handleRoot);
@@ -88,15 +104,23 @@ void setup() {
 void loop() {
     server.handleClient();
 
-    Input = getPosition();
-    steeringPID.Compute();
-    setServoAngle(90 + Output);
-
     if (pacing) {
-        Serial.println(getDistanceTraveled());
+
+        // Remove this line after testing
         setESCMicroseconds(microsecondsTemporary);
+
+        Input = getPosition();
+        steeringPID.Compute();
+        setServoAngle(90 + Output);
+
+        // Motor Control
+            // MotorInput = getRPS();
+            // motorPID.Compute();
+            // setESCMicroseconds(1500 + MotorOutput);
+
         if (getDistanceTraveled() >= distance) {
             pacing = false;
+            setServoAngle(90);
             setESCMicroseconds(NEUTRAL_THROTTLE);
             as5600.resetCumulativePosition(0);
             Serial.println("Program Stopped");
@@ -107,22 +131,37 @@ void loop() {
 void handleRoot() {
     if (server.method() == HTTP_POST) {
         if (server.hasArg("kp")) {
-            Kp = server.arg("kp").toFloat();
+            Kp = server.arg("kp").toDouble();
         }
         if (server.hasArg("kd")) {
-            Kd = server.arg("kd").toFloat();
+            Kd = server.arg("kd").toDouble();
         }
         if (server.hasArg("ki")) {
-            Ki = server.arg("ki").toFloat();
+            Ki = server.arg("ki").toDouble();
+        }
+        if (server.hasArg("motorkp")) {
+            motorKp = server.arg("motorkp").toDouble();
+        }
+        if (server.hasArg("motorkd")) {
+            motorKd = server.arg("motorkd").toDouble();
+        }
+        if (server.hasArg("motorki")) {
+            motorKi = server.arg("motorki").toDouble();
         }
         if (server.hasArg("distance")) {
-            distance = server.arg("distance").toFloat();
+            distance = server.arg("distance").toDouble();
+        }
+        if (server.hasArg("goalTime")) {
+            goalTime = server.arg("goalTime").toInt();
         }
         if (server.hasArg("microsecondsTemporary")) {
             microsecondsTemporary = server.arg("microsecondsTemporary").toInt();
         }
 
         as5600.resetCumulativePosition(0);
+        steeringPID.SetTunings(Kp, Ki, Kd);
+        motorPID.SetTunings(motorKp, motorKi, motorKd);
+        MotorSetpoint = calculateRPS();
         pacing = true;
     }
 
@@ -130,16 +169,30 @@ void handleRoot() {
     html += "<h1>Pacer Control Board</h1>";
     html += "<form action='/' method='POST'>";
 
+    html += "<h2>Steering PID Values</h2>";
     html += "<label for='kp'>Kp (Proportional Gain): </label>";
-    html += "<input type='number' id='kp' name='kp' step='any' value='" + String(Kp) + "'><br>";
+    html += "<input type='number' id='kp' name='kp' step='any' value='" + String(Kp, decimalPlaces) + "'><br>";
     html += "<label for='kd'>Kd (Derivative Gain): </label>";
-    html += "<input type='number' id='kd' name='kd' step='any' value='" + String(Kd) + "'><br>";
+    html += "<input type='number' id='kd' name='kd' step='any' value='" + String(Kd, decimalPlaces) + "'><br>";
     html += "<label for='ki'>Ki (Integral Gain): </label>";
-    html += "<input type='number' id='ki' name='ki' step='any' value='" + String(Ki) + "'><br>";
+    html += "<input type='number' id='ki' name='ki' step='any' value='" + String(Ki, decimalPlaces) + "'><br>";
 
+    html += "<h2>Motor PID Values</h2>";
+    html += "<label for='motorkp'>Kp (Proportional Gain): </label>";
+    html += "<input type='number' id='motorkp' name='motorkp' step='any' value='" + String(motorKp, decimalPlaces) + "'><br>";
+    html += "<label for='motorkd'>Kd (Derivative Gain): </label>";
+    html += "<input type='number' id='motorkd' name='motorkd' step='any' value='" + String(motorKd, decimalPlaces) + "'><br>";
+    html += "<label for='motorki'>Ki (Integral Gain): </label>";
+    html += "<input type='number' id='motorki' name='motorki' step='any' value='" + String(motorKi, decimalPlaces) + "'><br>";
+
+    html += "<h2>Pacing Parameters</h2>";
     html += "<label for='distance'>Distance (Meters): </label>";
-    html += "<input type='number' id='distance' name='distance' step='any' value='" + String(distance) + "'><br>";
-    html += "<label for='goalTime'>Microseconds: </label>";
+    html += "<input type='number' id='distance' name='distance' value='" + String(distance) + "'><br>";
+    html += "<label for='goalTime'>Pace Time (Seconds): </label>";
+    html += "<input type='number' id='goalTime' name='goalTime' value='" + String(goalTime) + "'><br>";
+
+    html += "<h2>Temporary Motor Speed Control</h2>";
+    html += "<label for='microsecondsTemporary'>Microseconds: </label>";
     html += "<input type='number' id='microsecondsTemporary' name='microsecondsTemporary' value='" + String(microsecondsTemporary) + "'><br>";
     
     html += "<input type='submit' value='Start'>";
@@ -206,6 +259,17 @@ void calibrateQTR() {
 }
 
 uint16_t getPosition() {
-  uint16_t position = qtr.readLineBlack(sensorValues);
+  uint16_t position = qtr.readLineWhite(sensorValues);
   return position;
+}
+
+double getRPS() {
+    return (as5600.getAngularSpeed(AS5600_MODE_RPM) / 60.0);
+}
+
+double calculateRPS() {
+    if (goalTime == 0) {
+        return 0.0;
+    }
+    return ((distance / goalTime) / WHEEL_CIRCUMFERENCE);
 }
