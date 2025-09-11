@@ -107,16 +107,16 @@ void loop() {
     if (pacing) {
 
         // Remove this line after testing
-        setESCMicroseconds(microsecondsTemporary);
+        // setESCMicroseconds(microsecondsTemporary);
 
         Input = getPosition();
         steeringPID.Compute();
         setServoAngle(90 + Output);
 
         // Motor Control
-            // MotorInput = getRPS();
-            // motorPID.Compute();
-            // setESCMicroseconds(1500 + MotorOutput);
+        MotorInput = getRPS();
+        motorPID.Compute();
+        setESCMicroseconds(1500 + MotorOutput);
 
         if (getDistanceTraveled() >= distance) {
             pacing = false;
@@ -264,7 +264,7 @@ uint16_t getPosition() {
 }
 
 double getRPS() {
-    return (as5600.getAngularSpeed(AS5600_MODE_RPM) / 60.0);
+    return ((as5600.getAngularSpeed(AS5600_MODE_RPM) / 60.0) / GEAR_RATIO);
 }
 
 double calculateRPS() {
