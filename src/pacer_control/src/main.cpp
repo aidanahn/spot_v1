@@ -17,6 +17,7 @@ QTRSensors qtr;
 // Pin Definitions
 #define ESC_PIN 33
 #define SERVO_PIN 32
+#define BUTTON_PIN 14
 
 // Motor/Servo/Sensor Constants
 const int FREQUENCY = 50;
@@ -34,7 +35,7 @@ const double WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
 
 // Website Inputs
 double distance = 0.0;
-int goalTime = 0;
+double goalTime = 0;
 int microsecondsTemporary = NEUTRAL_THROTTLE;
 
 // Steering PID Values
@@ -70,14 +71,13 @@ double calculateRPS();
 void setup() {
     Serial.begin(115200);
 
-    calibrateQTR();
-
     Wire.begin();
     as5600.resetCumulativePosition(0);
     ledcSetup(LED_CHANNEL, FREQUENCY, RESOLUTION);
     ledcAttachPin(ESC_PIN, LED_CHANNEL);
     ledcSetup(SERVO_LED_CHANNEL, FREQUENCY, RESOLUTION);
     ledcAttachPin(SERVO_PIN, SERVO_LED_CHANNEL);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
     setESCMicroseconds(1500);
     setServoAngle(90);
 
@@ -118,12 +118,19 @@ void loop() {
         motorPID.Compute();
         setESCMicroseconds(1500 + MotorOutput);
 
+        Serial.println(1500 + MotorOutput);
+
         if (getDistanceTraveled() >= distance) {
             pacing = false;
             setServoAngle(90);
             setESCMicroseconds(NEUTRAL_THROTTLE);
             as5600.resetCumulativePosition(0);
             Serial.println("Program Stopped");
+        }
+    }
+    else {
+        if (digitalRead(BUTTON_PIN) == LOW) {
+            calibrateQTR();
         }
     }
 }
@@ -152,7 +159,7 @@ void handleRoot() {
             distance = server.arg("distance").toDouble();
         }
         if (server.hasArg("goalTime")) {
-            goalTime = server.arg("goalTime").toInt();
+            goalTime = server.arg("goalTime").toDouble();
         }
         if (server.hasArg("microsecondsTemporary")) {
             microsecondsTemporary = server.arg("microsecondsTemporary").toInt();
@@ -187,9 +194,9 @@ void handleRoot() {
 
     html += "<h2>Pacing Parameters</h2>";
     html += "<label for='distance'>Distance (Meters): </label>";
-    html += "<input type='number' id='distance' name='distance' value='" + String(distance) + "'><br>";
+    html += "<input type='number' id='distance' name='distance' step='any' value='" + String(distance, decimalPlaces) + "'><br>";
     html += "<label for='goalTime'>Pace Time (Seconds): </label>";
-    html += "<input type='number' id='goalTime' name='goalTime' value='" + String(goalTime) + "'><br>";
+    html += "<input type='number' id='goalTime' name='goalTime' step='any' value='" + String(goalTime, decimalPlaces) + "'><br>";
 
     html += "<h2>Temporary Motor Speed Control</h2>";
     html += "<label for='microsecondsTemporary'>Microseconds: </label>";
@@ -264,7 +271,7 @@ uint16_t getPosition() {
 }
 
 double getRPS() {
-    return ((as5600.getAngularSpeed(AS5600_MODE_RPM) / 60.0) / GEAR_RATIO);
+    return -((as5600.getAngularSpeed(AS5600_MODE_RPM) / 60.0) / GEAR_RATIO);
 }
 
 double calculateRPS() {
