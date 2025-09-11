@@ -3,6 +3,9 @@ An autonomous line-following pacer car designed to maintain a steady speed on th
 ## Preview (WIP)
 ![WIP Pacer](images/pacer_wip_v2.jpg)
 ## Next Steps
-- Setup PID steering
+- First test at the track
+  - Find Motor PID
+  - Find Steering PID
+- Potentially get a sensored motor and a bigger IR sensor
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
